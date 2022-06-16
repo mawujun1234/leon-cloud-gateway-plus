@@ -2,11 +2,11 @@
 <dependency>
     <groupId>com.mawujun</groupId>
     <artifactId>leon-cloud-gateway-plus</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0</version>
     <scope>compile</scope>
 </dependency>
 
-这是ribbon的负载均衡器的版本，是老的
+这是ribbon的负载均衡器的版本，是老的.1.0只是这个版本
 
 主要用于智能路由，所有开发人员不需要所有微服务都打开，只第需要打开自己的微服务，
 一些公共微服务比如网关，认证，其他依赖微服务，会自动路由到测试机上的微服务。
