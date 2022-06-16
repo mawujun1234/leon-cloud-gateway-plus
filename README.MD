@@ -6,6 +6,8 @@
     <scope>compile</scope>
 </dependency>
 
+这个是基于spring cloud loadbalancer组件来的，不是ribbion
+
 
 主要用于智能路由，所有开发人员不需要所有微服务都打开，只第需要打开自己的微服务，
 一些公共微服务比如网关，认证，其他依赖微服务，会自动路由到测试机上的微服务。
