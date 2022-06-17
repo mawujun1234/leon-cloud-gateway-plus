@@ -20,10 +20,12 @@ import java.util.List;
 public class LoadBalancer implements ReactorServiceInstanceLoadBalancer {
     Logger logger= LoggerFactory.getLogger(ReactiveLoadBalancerClientFilter.class);
 
+    private String serviceId;
     ObjectProvider<ServiceInstanceListSupplier> serviceInstanceListSupplierProvider;
 
-    public LoadBalancer(ObjectProvider<ServiceInstanceListSupplier> serviceInstanceListSupplierProvider) {
+    public LoadBalancer(ObjectProvider<ServiceInstanceListSupplier> serviceInstanceListSupplierProvider,String serviceId) {
         this.serviceInstanceListSupplierProvider = serviceInstanceListSupplierProvider;
+        this.serviceId=serviceId;
     }
 
     public Mono<Response<ServiceInstance>> choose(Request request) {
@@ -57,18 +59,47 @@ public class LoadBalancer implements ReactorServiceInstanceLoadBalancer {
                 return new DefaultResponse(serviceInstance);
             }
         }
-
-        // TODO: enforce order?
-        int pos = 1;
-        ServiceInstance instance = instances.get(pos % instances.size());
-        return new DefaultResponse(instance);
+        //如果指定了ip地址，并且是采用严格模式的话，前面找不到，就直接给出一个空的
+        //既如果前面有匹配的话，就不会走到这里来了
+        if(clientIp!=null  && clientIp.length() != 0
+                && !"unknown".equalsIgnoreCase(clientIp)
+                && !"127.0.0.1".equalsIgnoreCase(clientIp)
+                && getIpStrict(request)){
+            return new EmptyResponse();
+        } else {
+            //如果没有找到匹配的服务，就自动找一个微服务提供服务
+            int pos = 1;
+            ServiceInstance instance = instances.get(pos % instances.size());
+            return new DefaultResponse(instance);
+        }
     }
 
-
+    public boolean getIpStrict(ServerHttpRequest request) {
+        HttpHeaders headers = request.getHeaders();
+        String strict = headers.getFirst("y-target-strict");
+        if(strict!=null){
+            //指定的微服务使用严格模式
+            String[] array=strict.split(",");
+            for(String a:array){
+                if(serviceId.equals(a)){
+                    return true;
+                }
+            }
+            return false;
+        } else {
+            return false;
+        }
+    }
     public String getIpAddress(ServerHttpRequest request) {
         //ServerHttpRequest request=ThreadLocalUtils.get();
         HttpHeaders headers = request.getHeaders();
-        String ip = headers.getFirst("x-forwarded-for");
+        //当前端需要指定连接到开发者的机器的时候，主的还是连到测试库
+        String ip = headers.getFirst("y-target-host");
+        if(ip!=null && !"".equals(ip.trim())){
+            return ip;
+        }
+
+        ip = headers.getFirst("x-forwarded-for");
         logger.info("x-forwarded-for：{}",ip);
         if (ip != null && ip.length() != 0 && !"unknown".equalsIgnoreCase(ip)) {
             if (ip.indexOf(",") != -1) {
@@ -99,6 +130,10 @@ public class LoadBalancer implements ReactorServiceInstanceLoadBalancer {
         if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
             ip = request.getRemoteAddress().getAddress().getHostAddress();
             logger.info(" request.getRemoteAddress().getAddress().getHostAddress()：{}",ip);
+        }
+        //如果获取到的是本地，就代表没有获取到，就按照正常的负载均衡逻辑
+        if("127.0.0.1".equals(ip)){
+            ip= null;
         }
         return ip;
     }

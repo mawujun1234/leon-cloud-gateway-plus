@@ -131,7 +131,7 @@ public class LoadBalancerClientFilter implements GlobalFilter, Ordered { // exte
         if(loadBalancer==null){
             //微服务实例的提供者，拷贝自LoadBalancerClientConfiguration
             ObjectProvider<ServiceInstanceListSupplier> serviceInstanceListSupplierProvider=clientFactory.getLazyProvider(serviceId, ServiceInstanceListSupplier.class);
-            loadBalancer=new LoadBalancer(serviceInstanceListSupplierProvider);
+            loadBalancer=new LoadBalancer(serviceInstanceListSupplierProvider,serviceId);
             aiLoadBalancerCache.put(serviceId,loadBalancer);
         }
         return loadBalancer.choose(lbRequest);
