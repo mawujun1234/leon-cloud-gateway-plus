@@ -52,54 +52,64 @@ public class LoadBalancer implements ReactorServiceInstanceLoadBalancer {
         if (instances.isEmpty()) {
             return new EmptyResponse();
         }
-        String clientIp=getIpAddress(request);
-        //判断是否有微服务的地址是和开发者机器上的地址一样，如果有就使用这个微服务
-        for(ServiceInstance serviceInstance:instances){
-            if(serviceInstance.getHost().equals(clientIp)){
-                return new DefaultResponse(serviceInstance);
+        String clientIp=getIpStrict(request);//getIpAddress(request);
+        if(clientIp!=null && !"".equals(clientIp.trim())){
+            //判断是否有微服务的地址是和开发者机器上的地址一样，如果有就使用这个微服务
+            for(ServiceInstance serviceInstance:instances){
+                if(serviceInstance.getHost().equals(clientIp)){
+                    return new DefaultResponse(serviceInstance);
+                }
             }
-        }
-        //如果指定了ip地址，并且是采用严格模式的话，前面找不到，就直接给出一个空的
-        //既如果前面有匹配的话，就不会走到这里来了
-        if(clientIp!=null  && clientIp.length() != 0
-                && !"unknown".equalsIgnoreCase(clientIp)
-                && !"127.0.0.1".equalsIgnoreCase(clientIp)
-                && getIpStrict(request)){
+            //没找到匹配的，就返回一个空的
             return new EmptyResponse();
-        } else {
-            //如果没有找到匹配的服务，就自动找一个微服务提供服务
+        } else {//如果没有指定，那就走自动判断的路线
+            clientIp=getIpAddress(request);
+            //自动判断
+            // 如果能获取到ip，就使用指定机器上的服务进行
+            if(clientIp!=null  && clientIp.length() != 0
+                    && !"unknown".equalsIgnoreCase(clientIp)
+                    && !"127.0.0.1".equalsIgnoreCase(clientIp)){
+                for(ServiceInstance serviceInstance:instances){
+                    if(serviceInstance.getHost().equals(clientIp)){
+                        return new DefaultResponse(serviceInstance);
+                    }
+                }
+            }
+            //如果在指定ip的机器上没有找到匹配的服务，就自动找一个微服务提供服务
             int pos = 1;
             ServiceInstance instance = instances.get(pos % instances.size());
             return new DefaultResponse(instance);
         }
+
     }
 
-    public boolean getIpStrict(ServerHttpRequest request) {
+    /**
+     * 判断当前微服务是否使用指定ip模式，如果是就必须有这个ip的微服务
+     * 如果返回null，就表示不使用指定模式
+     * @param request
+     * @return
+     */
+    public String getIpStrict(ServerHttpRequest request) {
         HttpHeaders headers = request.getHeaders();
-        String strict = headers.getFirst("y-target-strict");
+        String strict = headers.getFirst("y-target-host");
         if(strict!=null){
             //指定的微服务使用严格模式
             String[] array=strict.split(",");
             for(String a:array){
-                if(serviceId.equals(a)){
-                    return true;
+                if(a.contains(this.serviceId)){
+                    //返回指定的ip地址
+                    return a.split(":")[1];
                 }
             }
-            return false;
+            return null;
         } else {
-            return false;
+            return null;
         }
     }
     public String getIpAddress(ServerHttpRequest request) {
         //ServerHttpRequest request=ThreadLocalUtils.get();
         HttpHeaders headers = request.getHeaders();
-        //当前端需要指定连接到开发者的机器的时候，主的还是连到测试库
-        String ip = headers.getFirst("y-target-host");
-        if(ip!=null && !"".equals(ip.trim())){
-            return ip;
-        }
-
-        ip = headers.getFirst("x-forwarded-for");
+        String ip = headers.getFirst("x-forwarded-for");
         logger.info("x-forwarded-for：{}",ip);
         if (ip != null && ip.length() != 0 && !"unknown".equalsIgnoreCase(ip)) {
             if (ip.indexOf(",") != -1) {
