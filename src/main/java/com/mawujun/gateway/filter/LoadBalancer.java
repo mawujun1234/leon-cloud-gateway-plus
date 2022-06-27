@@ -63,7 +63,8 @@ public class LoadBalancer implements ReactorServiceInstanceLoadBalancer {
             //没找到匹配的，就返回一个空的
             return new EmptyResponse();
         } else {//如果没有指定，那就走自动判断的路线
-            clientIp=getIpAddress(request);
+            //clientIp=getIpAddress(request);
+            clientIp=IpUtils.getIpAddr(request);
             //自动判断
             // 如果能获取到ip，就使用指定机器上的服务进行
             if(clientIp!=null  && clientIp.length() != 0
