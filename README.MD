@@ -1,3 +1,5 @@
+**feign调用的时候，还不会自动寻找自己的主机
+
 使用方法，只需要往gateway项目添加依赖即可：
 <dependency>
     <groupId>com.mawujun</groupId>
